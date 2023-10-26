@@ -1,0 +1,8 @@
+discord
+asyncio
+srcomapi
+requests
+datetime
+python-dotenv
+gspread
+discord-py-slash-command
