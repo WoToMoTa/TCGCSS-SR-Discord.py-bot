@@ -310,6 +310,7 @@ gamesInit = [
 	['kdk5jedm', 'fangame'],
 	['kdkmo5q1', 'fangame'],
 	['46w38ml1', 'fangame'],
+	['o6gkk2n1', 'fangame'],
 ]
 
 print(datetime.utcnow(), 'init')
