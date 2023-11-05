@@ -6,6 +6,10 @@ Moved from private account
 Every predefined amount of time, the bot checks for newly verified runs on the leaderboards of specified game series on Speedrun.com. Whenever there's a one, it buidls an embed, and forwards it to predefined Discord channel. It's a great tool for the community to keep up with the new within the new top runs, and for moderators, to share their progress with the rest of the people.
 
 ![Example embed](https://cdn.discordapp.com/attachments/852890956306448394/1170826148700229702/image.png?ex=655a73d2&is=6547fed2&hm=3a2d0eff59a6519ffa006580a982c939a605bcf25f9b0372b1c7adc5ec96e7a6&)  
+
+## Requirements
+The bot works with Python 3.10+. To install the required packages, simply run `pip install -r requirements.txt`. You also need to prepare the `.env` file, you need to generate your own Discord Bot Token, and save it in the `DISCORD_TOKEN` parameter.  
+
 ## Now using Speedrun.com API v2
 The latest rewrite allows easier customisation. The `settings.py` file should contain all the details the program needs to handle the games. Huge shout-outs to [Jamie](https://github.com/ManicJamie) for the [python wrapper](https://github.com/ManicJamie/speedruncompy), it's a great help!
 
@@ -28,3 +32,8 @@ How often does the program check for the new runs in the series. Not recommended
 
 #### SERIES_ID
 List the IDs of series the bot is supposed to follow.
+
+## TODO
+- Find a better way to provide the settings. 
+- Support checking for runs from specific games, rather than only game series.
+- Rewrite and reimplement the `ranking.py` 👀
