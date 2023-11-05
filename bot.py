@@ -18,7 +18,7 @@ class Run:
         self.id = runData['id']
         self.position = runData['place']
         self.time = runData['time'] if 'time' in runData else runData['timeWithLoads']
-        self.dateVerified = runData['dateVerified']
+        self.dateSubmitted = runData['dateSubmitted']
 
         self.gameInfo = {
             'id': gameData['id'],
@@ -75,7 +75,7 @@ class RunEmbed(discord.Embed):
         self.run = run
         colour = self.run.settings['colour']
         description = self.runDescription()
-        timestamp = datetime.fromtimestamp(self.run.dateVerified, timezone.utc)
+        timestamp = datetime.fromtimestamp(self.run.dateSubmitted, timezone.utc)
         super().__init__(colour=colour, description=description, timestamp=timestamp)
 
         self.set_author(
