@@ -111,7 +111,7 @@ class RunEmbed(discord.Embed):
         seconds = int(t%60)
         milliseconds = round(t%1*1000)
 
-        if 'lowcast' in self.run.categoryInfo['name'].lower():
+        if 'lowcast' in self.categoryDisplay().lower():
             return "%d:%02d:%02d (%d casts)" % (minutes, seconds, milliseconds/10, hours)
         elif t > 600:
             return "%d:%02d:%02d" % (hours, minutes, seconds)
@@ -150,7 +150,38 @@ class RunEmbed(discord.Embed):
         
         return '\n'.join(elements)
     
-    
+
+class streamEmbed(discord.Embed):
+    def __init__(self, streamData, gameData, userData) -> None:
+        super().__init__()
+        authorName = userData['name']
+        jaa = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
+        authorIcon = 'https://www.speedrun.com' + jaa[0]['path'] if jaa else None
+        authorLink = 'https://www.speedrun.com/user/'+userData['url']
+        twitchLink = 'https://www.twitch.tv/' + streamData['channelName']
+        title = streamData['title']
+        self.colour = 0xffffff if streamData['hasPb'] else 0x000000
+        self.title = title
+        self.url = twitchLink
+        self.set_image(url=streamData['previewUrl'])
+        self.message = f'[{streamData["channelName"]}]({twitchLink}) is streaming {gameData["name"].split("(")[0]}'
+        self.set_author(
+            name = authorName,
+            icon_url = authorIcon,
+            url = authorLink
+        )
+
+
+class GetRun(speedruncompy.GetRequest):
+    def __init__(self, runId: str = None, **params) -> None:
+        super().__init__("GetRun", runId=runId, **params)
+
+
+class GetStreamList(speedruncompy.GetRequest):
+    def __init__(self, **params) -> None:
+        super().__init__("GetStreamList", **params)
+
+
 def initialPrep():
     global rememberedRuns
     rememberedRuns = []
@@ -165,6 +196,7 @@ def initialPrep():
 
 client = commands.Bot(command_prefix='/', intents=discord.Intents.default(), allowed_mentions=discord.AllowedMentions(roles=True, users=True, everyone=True))
 rememberedRuns = []
+rememberedStreams: dict[str, discord.Message] = {}
 
 
 @client.event
@@ -172,12 +204,29 @@ async def on_ready():
     print("Bot Online!")
     print("Name: {}".format(client.user.name))
     print("ID: {}".format(client.user.id))
+    try: 
+        synced = await client.tree.sync()
+        print(f'Synced {len(synced)} command(s)')
+    except Exception as e:
+        print(e)
     initialPrep()
     mainloop.start()
 
 
 @tasks.loop(minutes = FREQUENCY_MINUTES)
 async def mainloop():
+    # try:
+        await checkForNewRuns()
+        await checkForNewStreams()
+    # except Exception as ex:
+    #     with open('log.txt', 'a') as logs:
+    #         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+    #         message = template.format(type(ex).__name__, ex.args)
+    #         print(message)
+    #         logs.write(message)
+
+
+async def checkForNewRuns():
     global rememberedRuns
 
     newRuns: list[Run] = []
@@ -216,6 +265,44 @@ async def mainloop():
         reactionEmote = newRun.settings['emotes'].get(newRun.position, None)
         if reactionEmote != None:
             await sentMessage.add_reaction(reactionEmote)
+
+async def checkForNewStreams():
+    seriesId = '15ndxp7r'
+    endpoint = GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
+    data = endpoint.perform()
+    streamsToDelete = []
+    for user in rememberedStreams.keys():
+        if user not in [streamData['channelName'] for streamData in data['streamList']]:
+            streamsToDelete.append(user)
+    for user in streamsToDelete:
+        print(f"Deleting {user}'s stream")
+        await rememberedStreams[user].delete()
+        del rememberedStreams[user]
+    for streamData in data['streamList']:
+        if streamData['channelName'] not in rememberedStreams.keys():
+            gameData = [game for game in data['gameList'] if streamData['gameId'] == game['id']][0]
+            userData = [user for user in data['userList'] if streamData['userId'] == user['id']][0]
+            embed = streamEmbed(streamData, gameData, userData)
+            message: discord.Message = await client.get_channel(365236143815655434).send(embed.message, embed=embed)
+            rememberedStreams[streamData['channelName']] = message
+
+
+@client.tree.command(name='run_to_embed')
+@discord.app_commands.describe(run_id = 'ID of the run you want to embed')
+async def run_to_embed(interaction: discord.Interaction, run_id: str):
+    endpoint = GetRun(runId=run_id)
+    data = endpoint.perform()
+    runToEmbed = Run(
+        data['run'],
+        data['category'],
+        data['game'],
+        data['level'] if 'levelId' in data['run'] else None,
+        data['values'],
+        data['variables'],
+        data['players']
+    ) 
+
+    await interaction.response.send_message(embeds=[RunEmbed(runToEmbed)])
 
 
 client.run(DISCORD_TOKEN)
