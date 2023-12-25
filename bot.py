@@ -6,12 +6,16 @@ import tracemalloc
 import discord
 from discord.ext import commands, tasks
 import speedruncompy
-from settings import FREQUENCY_MINUTES, GAME_SETTINGS, IL_MODE, SERIES_ID
+import json
+from utilis.verify_settings import *
 
 
 tracemalloc.start()
 load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+verifySettings('settings.json')
+with open('settings.json', 'r') as settingsFile:
+    settings = json.load(settingsFile) 
 
 class Run:
     def __init__(self, runData: dict, categoryData: dict, gameData: dict, levelData: dict|None, valuesData: list[dict], variablesData: list[dict], playersData: list[dict]) -> None:
@@ -26,7 +30,7 @@ class Run:
             'abbreviation': gameData['url'],
             'cover': 'https://www.speedrun.com'+gameData['coverPath'],
         }
-        self.settings = GAME_SETTINGS.get(self.gameInfo['id'], GAME_SETTINGS['default'])
+        self.settings = settings['games'].get(self.gameInfo['id'], settings['games']['default'])
 
         self.categoryInfo = {
             'id': categoryData['id'],
@@ -64,7 +68,7 @@ class Run:
 
         self.weblink = f'https://www.speedrun.com/{self.gameInfo["abbreviation"]}/runs/{self.id}'
         self.leaderboardLink = f'https://www.speedrun.com/{self.gameInfo["abbreviation"]}?x={"l_"+self.levelInfo["id"]+"-" if not self.isFullGame else ""}{self.categoryInfo["id"]}{"".join(["-"+value["variableId"]+"."+value["id"] for value in self.valuesInfo])}'
-        if self.position == 1 and (self.isFullGame or (not self.isFullGame and IL_MODE > 1)):
+        if self.position == 1 and (self.isFullGame or (not self.isFullGame and self.settings['il_mode'] > 1)):
             self.pings = ' '.join(self.settings['wr_ping'])
         else:
             self.pings = ''
@@ -89,22 +93,13 @@ class RunEmbed(discord.Embed):
         elements = []
         if self.run.position in self.run.settings['emotes']:
             elements.append(self.run.settings['emotes'][self.run.position])
-        elements.append(f'{self.ordinalPosition(self.run.position)} place:')
+        elements.append(f'{FormatText.ordinalPosition(self.run.position)} place:')
         elements.append(f'[{self.convertTimeFormat(self.run.time)}]({self.run.weblink})')
         elements.append('by')
         elements.append(self.playersDisplay())
         
         return ' '.join(elements)
-        
-        
-    def ordinalPosition(self, n: int) -> str:
-        if 11 <= (n % 100) <= 13:
-            suffix = 'th'
-        else:
-            suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
-
-        return str(n) + suffix
-    
+          
     def convertTimeFormat(self, t: float) -> str:
         hours = int(t/60/60)
         minutes = int(t/60%60)
@@ -118,12 +113,6 @@ class RunEmbed(discord.Embed):
         else:
             return "%d:%02d.%03d" % (minutes, seconds, milliseconds) 
         
-    def getFlagEmoji(self, countryCode: str|None) -> str:
-        if countryCode == None: return ''
-        codePoints = [127397 + ord(char) for char in countryCode.upper()]
-
-        return ''.join(chr(codePoint) for codePoint in codePoints)
-        
     def playersDisplay(self) -> str:
         playersInfo = self.run.playersInfo
         displayPlayers = ''
@@ -133,7 +122,7 @@ class RunEmbed(discord.Embed):
             elif len(playersInfo) > 1 and count >= 1:
                 displayPlayers += ', '
             if player['url'] is not None:
-                flag = self.getFlagEmoji(player["country"]) + " " if player["country"] != "" else ""
+                flag = FormatText.getFlagEmoji(player["country"]) + " " if player["country"] != "" else ""
                 displayPlayers += f'{flag}[{player["name"]}]({player["url"]})'
             else:
                 displayPlayers += player['name']
@@ -155,21 +144,43 @@ class streamEmbed(discord.Embed):
     def __init__(self, streamData, gameData, userData) -> None:
         super().__init__()
         authorName = userData['name']
-        jaa = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
-        authorIcon = 'https://www.speedrun.com' + jaa[0]['path'] if jaa else None
+        userAssets = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
+        authorIcon = 'https://www.speedrun.com' + userAssets[0]['path'] if userAssets else None
         authorLink = 'https://www.speedrun.com/user/'+userData['url']
         twitchLink = 'https://www.twitch.tv/' + streamData['channelName']
         title = streamData['title']
+        gameSettings = settings['games'][gameData['id']]
+        gameName = gameSettings.get('display_name', gameData['name'])
         self.colour = 0xffffff if streamData['hasPb'] else 0x000000
         self.title = title
         self.url = twitchLink
+        self.area = streamData['areaId']
         self.set_image(url=streamData['previewUrl'])
-        self.message = f'[{streamData["channelName"]}]({twitchLink}) is streaming {gameData["name"].split("(")[0]}'
+        self.message = f'{FormatText.getFlagEmoji(self.area)} [{streamData["channelName"]}]({twitchLink}) is streaming {gameSettings["emote"]} {gameName}!'
         self.set_author(
             name = authorName,
             icon_url = authorIcon,
             url = authorLink
         )
+        self.servers = gameSettings['stream_notif']
+
+
+class FormatText:
+    @staticmethod
+    def ordinalPosition(n: int) -> str:
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+
+        return str(n) + suffix
+    
+    @staticmethod
+    def getFlagEmoji(countryCode: str|None) -> str:
+        if countryCode == None: return ''
+        codePoints = [127397 + ord(char) for char in countryCode.upper()]
+
+        return ''.join(chr(codePoint) for codePoint in codePoints)
 
 
 class GetRun(speedruncompy.GetRequest):
@@ -182,11 +193,10 @@ class GetStreamList(speedruncompy.GetRequest):
         super().__init__("GetStreamList", **params)
 
 
-def initialPrep():
+async def initialPrep() -> None:
     global rememberedRuns
     rememberedRuns = []
-
-    for series in SERIES_ID:
+    for series in settings['series']:
         endpoint = speedruncompy.GetLatestLeaderboard(seriesId=series, limit=100)
         data = endpoint.perform()
         latestRuns = [run['id'] for run in data['runs']]
@@ -209,28 +219,22 @@ async def on_ready():
         print(f'Synced {len(synced)} command(s)')
     except Exception as e:
         print(e)
-    initialPrep()
+    await initialPrep()
+    print("Ready!")
     mainloop.start()
 
 
-@tasks.loop(minutes = FREQUENCY_MINUTES)
+@tasks.loop(minutes = settings['loop_period'])
 async def mainloop():
-    # try:
-        await checkForNewRuns()
-        await checkForNewStreams()
-    # except Exception as ex:
-    #     with open('log.txt', 'a') as logs:
-    #         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-    #         message = template.format(type(ex).__name__, ex.args)
-    #         print(message)
-    #         logs.write(message)
+    await checkForNewRuns()
+    await checkForNewStreams()
 
 
 async def checkForNewRuns():
     global rememberedRuns
 
     newRuns: list[Run] = []
-    for series in SERIES_ID:
+    for series in settings['series']:
         endpoint = speedruncompy.GetLatestLeaderboard(
             seriesId=series, 
             limit=20,
@@ -249,7 +253,7 @@ async def checkForNewRuns():
                     [playerData for playerData in data['players'] if playerData['id'] in run['playerIds']]
                 ) 
 
-                if IL_MODE == 0:
+                if newRun.settings['il_mode'] == 0:
                     if not newRun.isFullGame:
                         continue
 
@@ -283,8 +287,9 @@ async def checkForNewStreams():
             gameData = [game for game in data['gameList'] if streamData['gameId'] == game['id']][0]
             userData = [user for user in data['userList'] if streamData['userId'] == user['id']][0]
             embed = streamEmbed(streamData, gameData, userData)
-            message: discord.Message = await client.get_channel(365236143815655434).send(embed.message, embed=embed)
-            rememberedStreams[streamData['channelName']] = message
+            for server in embed.servers:
+                message: discord.Message = await client.get_channel(server).send(embed.message, embed=embed)
+                rememberedStreams[streamData['channelName']] = message
 
 
 @client.tree.command(name='run_to_embed')
