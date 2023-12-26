@@ -91,8 +91,8 @@ class RunEmbed(discord.Embed):
 
     def runDescription(self) -> str:
         elements = []
-        if self.run.position in self.run.settings['emotes']:
-            elements.append(self.run.settings['emotes'][self.run.position])
+        if str(self.run.position) in self.run.settings['emotes']:
+            elements.append(self.run.settings['emotes'][str(self.run.position)])
         elements.append(f'{FormatText.ordinalPosition(self.run.position)} place:')
         elements.append(f'[{self.convertTimeFormat(self.run.time)}]({self.run.weblink})')
         elements.append('by')
@@ -266,7 +266,7 @@ async def checkForNewRuns():
     for newRun in newRuns:
         print(datetime.utcnow(), 'new run:', newRun.weblink)
         sentMessage = await client.get_channel(newRun.settings['server']).send(newRun.pings, embed=RunEmbed(newRun))
-        reactionEmote = newRun.settings['emotes'].get(newRun.position, None)
+        reactionEmote = newRun.settings['emotes'].get(str(newRun.position), None)
         if reactionEmote != None:
             await sentMessage.add_reaction(reactionEmote)
 
