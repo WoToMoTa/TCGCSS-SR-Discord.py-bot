@@ -155,7 +155,7 @@ class streamEmbed(discord.Embed):
         self.title = title
         self.url = twitchLink
         self.area = streamData['areaId']
-        self.set_image(url=streamData['previewUrl'])
+        self.set_image(url=streamData['previewUrl'] + '?vary=' + str(randint(0, 1_000_000)))
         self.message = f'{FormatText.getFlagEmoji(self.area)} [{streamData["channelName"]}]({twitchLink}) is streaming **{gameName}** {gameSettings["emote"]}'
         self.set_author(
             name = authorName,
