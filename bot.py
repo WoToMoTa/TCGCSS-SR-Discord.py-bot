@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from dotenv import load_dotenv
 from random import randint
 import tracemalloc
@@ -171,9 +171,9 @@ class buttonView(discord.ui.View):
         super().__init__()
         self.authorLink = authorLink
         self.twitchLink = twitchLink
-        twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink, style=discord.ButtonStyle.primary)
+        twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink, style=discord.ButtonStyle.link)
         self.add_item(twitchButton)
-        srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink, style=discord.ButtonStyle.success)
+        srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink, style=discord.ButtonStyle.link)
         self.add_item(srdcButton)
     
 
@@ -199,9 +199,9 @@ class FormatText:
 async def initialPrep() -> None:
     global rememberedRuns
     for series in settings['series']:
-        endpoint = speedruncompy.GetLatestLeaderboard(seriesId=series, limit=100)
-        data = endpoint.perform()
-        rememberedRuns = {series['id']: [run['id'] for run in data['runs']]}
+        endpoint = speedruncompy.GetLatestLeaderboard(seriesId=series, limit=100, vary=randint(0, 1_000_000))
+        data = await endpoint.perform_async()
+        rememberedRuns[series] = [run['id'] for run in data['runs']]
 
 
 
@@ -241,9 +241,9 @@ async def checkForNewRuns():
             limit=20,
             vary=randint(0, 1_000_000)
             )
-        data = endpoint.perform()
+        data = await endpoint.perform_async()
         for run in data['runs']:
-            if run['id'] not in rememberedRuns:
+            if run['id'] not in rememberedRuns[series]:
                 newRun = Run(
                     run,
                     [categoryData for categoryData in data['categories'] if categoryData['id'] == run['categoryId']][0],
@@ -262,7 +262,7 @@ async def checkForNewRuns():
                 rememberedRuns[series].append(newRun.id)
 
     for newRun in newRuns:
-        print(datetime.utcnow(), 'new run:', newRun.weblink)
+        print(datetime.now(UTC), 'new run:', newRun.weblink)
         sentMessage = await client.get_channel(newRun.settings['server']).send(newRun.pings, embed=RunEmbed(newRun))
         reactionEmote = newRun.settings['emotes'].get(str(newRun.position), None)
         if reactionEmote != None:
@@ -271,7 +271,7 @@ async def checkForNewRuns():
 async def checkForNewStreams():
     seriesId = '15ndxp7r'
     endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
-    data = endpoint.perform()
+    data = await endpoint.perform_async()
     streamsToDelete = []
     for user in rememberedStreams.keys():
         if user not in [streamData['channelName'] for streamData in data['streamList']]:
