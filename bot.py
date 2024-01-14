@@ -147,7 +147,7 @@ class streamEmbed(discord.Embed):
         userAssets = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
         authorIcon = 'https://www.speedrun.com' + userAssets[0]['path'] if userAssets else None
         authorLink = 'https://www.speedrun.com/user/'+userData['url']
-        twitchLink = 'https://www.twitch.tv/' + streamData['channelName']
+        twitchLink = streamData['url']
         title = streamData['title']
         gameSettings = settings['games'][gameData['id']]
         gameName = gameSettings.get('display_name', gameData['name'])
@@ -156,13 +156,26 @@ class streamEmbed(discord.Embed):
         self.url = twitchLink
         self.area = streamData['areaId']
         self.set_image(url=streamData['previewUrl'] + '?vary=' + str(randint(0, 1_000_000)))
-        self.message = f'{FormatText.getFlagEmoji(self.area)} [{streamData["channelName"]}]({twitchLink}) is streaming **{gameName}** {gameSettings["emote"]}'
+        self.message = f'{FormatText.getFlagEmoji(self.area)} **{streamData["channelName"]}** is streaming **{gameName}** {gameSettings["emote"]}'
         self.set_author(
             name = authorName,
             icon_url = authorIcon,
             url = authorLink
         )
         self.servers = gameSettings['stream_notif']
+        self.view = buttonView(authorLink, twitchLink)
+
+
+class buttonView(discord.ui.View):
+    def __init__(self, authorLink, twitchLink):
+        super().__init__()
+        self.authorLink = authorLink
+        self.twitchLink = twitchLink
+        twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink, style=discord.ButtonStyle.primary)
+        self.add_item(twitchButton)
+        srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink, style=discord.ButtonStyle.success)
+        self.add_item(srdcButton)
+    
 
 
 class FormatText:
@@ -183,29 +196,17 @@ class FormatText:
         return ''.join(chr(codePoint) for codePoint in codePoints)
 
 
-class GetRun(speedruncompy.GetRequest):
-    def __init__(self, runId: str = None, **params) -> None:
-        super().__init__("GetRun", runId=runId, **params)
-
-
-class GetStreamList(speedruncompy.GetRequest):
-    def __init__(self, **params) -> None:
-        super().__init__("GetStreamList", **params)
-
-
 async def initialPrep() -> None:
     global rememberedRuns
-    rememberedRuns = []
     for series in settings['series']:
         endpoint = speedruncompy.GetLatestLeaderboard(seriesId=series, limit=100)
         data = endpoint.perform()
-        latestRuns = [run['id'] for run in data['runs']]
-        rememberedRuns += latestRuns
+        rememberedRuns = {series['id']: [run['id'] for run in data['runs']]}
 
 
 
 client = commands.Bot(command_prefix='/', intents=discord.Intents.default(), allowed_mentions=discord.AllowedMentions(roles=True, users=True, everyone=True))
-rememberedRuns = []
+rememberedRuns: dict[str, list[str]] = {}
 rememberedStreams: dict[str, discord.Message] = {}
 
 
@@ -258,10 +259,7 @@ async def checkForNewRuns():
                         continue
 
                 newRuns.append(newRun)
-                if len(rememberedRuns) < 1000:
-                    rememberedRuns = [newRun.id] + rememberedRuns
-                else:
-                    rememberedRuns = [newRun.id] + rememberedRuns[999:]
+                rememberedRuns[series].append(newRun.id)
 
     for newRun in newRuns:
         print(datetime.utcnow(), 'new run:', newRun.weblink)
@@ -272,7 +270,7 @@ async def checkForNewRuns():
 
 async def checkForNewStreams():
     seriesId = '15ndxp7r'
-    endpoint = GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
+    endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
     data = endpoint.perform()
     streamsToDelete = []
     for user in rememberedStreams.keys():
@@ -288,15 +286,17 @@ async def checkForNewStreams():
             userData = [user for user in data['userList'] if streamData['userId'] == user['id']][0]
             embed = streamEmbed(streamData, gameData, userData)
             for server in embed.servers:
-                message: discord.Message = await client.get_channel(server).send(embed.message, embed=embed)
+                message: discord.Message = await client.get_channel(server).send(embed.message, embed=embed, view=embed.view)
                 rememberedStreams[streamData['channelName']] = message
 
 
 @client.tree.command(name='run_to_embed')
 @discord.app_commands.describe(run_id = 'ID of the run you want to embed')
 async def run_to_embed(interaction: discord.Interaction, run_id: str):
-    endpoint = GetRun(runId=run_id)
+    endpoint = speedruncompy.GetRun(runId=run_id)
     data = endpoint.perform()
+    if 'error' in data:
+        interaction.response.send_message(content='Run not found.', ephemeral=True)
     runToEmbed = Run(
         data['run'],
         data['category'],
