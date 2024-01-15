@@ -171,9 +171,9 @@ class buttonView(discord.ui.View):
         super().__init__()
         self.authorLink = authorLink
         self.twitchLink = twitchLink
-        twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink, style=discord.ButtonStyle.link)
+        twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink)
         self.add_item(twitchButton)
-        srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink, style=discord.ButtonStyle.link)
+        srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink)
         self.add_item(srdcButton)
     
 
@@ -293,21 +293,22 @@ async def checkForNewStreams():
 @client.tree.command(name='run_to_embed')
 @discord.app_commands.describe(run_id = 'ID of the run you want to embed')
 async def run_to_embed(interaction: discord.Interaction, run_id: str):
-    endpoint = speedruncompy.GetRun(runId=run_id)
-    data = endpoint.perform()
-    if 'error' in data:
-        interaction.response.send_message(content='Run not found.', ephemeral=True)
-    runToEmbed = Run(
-        data['run'],
-        data['category'],
-        data['game'],
-        data['level'] if 'levelId' in data['run'] else None,
-        data['values'],
-        data['variables'],
-        data['players']
-    ) 
+    try:
+        endpoint = speedruncompy.GetRun(runId=run_id)
+        data = await endpoint.perform_async()
+        runToEmbed = Run(
+            data['run'],
+            data['category'],
+            data['game'],
+            data['level'] if 'levelId' in data['run'] else None,
+            data['values'],
+            data['variables'],
+            data['players']
+        ) 
 
-    await interaction.response.send_message(embeds=[RunEmbed(runToEmbed)])
+        await interaction.response.send_message(embeds=[RunEmbed(runToEmbed)])
+    except speedruncompy.exceptions.BadRequest:
+        await interaction.response.send_message(content='Run not found.', ephemeral=True)
 
 
 client.run(DISCORD_TOKEN)
