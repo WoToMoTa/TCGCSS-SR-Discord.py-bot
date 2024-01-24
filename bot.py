@@ -185,6 +185,7 @@ class TherunEmbed(discord.Embed):
         self.currentSplitName: str = therunUserData['currentSplitName'] if therunUserData['currentSplitName'] else "-"
         self.totalSplitCount: int = len(therunUserData['splits'])
         self.runPercentage: float = float(therunUserData['runPercentage'])
+        self.currentTime: float = therunUserData['currentTime']
         self.delta: float = therunUserData['delta']
         self.pb: float|None = therunUserData['pb']
         self.variables: dict[str, str] = therunUserData['variables']
@@ -219,11 +220,18 @@ class TherunEmbed(discord.Embed):
         return ', '.join([self.category, *self.variables.values()])
     
     def getDescription(self) -> str:
-        return \
-            f"Personal Best: **{self.personalBest()}**\n\
-            Current split: **{self.currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})\n\
-            Current pace: **{self.deltaToTime()}**\n\
-            Run progression: {self.progressBar()}"
+        if self.currentSplitIndex < self.totalSplitCount:
+            return \
+                f"Personal Best: **{self.personalBest()}**\n\
+                Current split: **{self.currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})\n\
+                Current pace: **{self.deltaToTime()}**\n\
+                Run progression: {self.progressBar()}"
+        else:
+            return \
+                f"Personal Best: **{self.personalBest()}**\n\
+                Final time: **{self.currentTime*1000}**\n\
+                Difference to PB: **{self.deltaToTime()}**\n\
+                Run progression: {self.progressBar()}"
 
 
 class ButtonView(discord.ui.View):
