@@ -790,7 +790,9 @@
             "server": 1029384953189896322,
             "emotes": {},
             "wr_ping": [],
-            "stream_notif": [],
+            "stream_notif": [
+                1029384953189896322
+            ],
             "il_mode": 0,
             "emote": ""
         }
