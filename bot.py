@@ -8,6 +8,7 @@ from discord.ext import commands, tasks
 import speedruncompy
 import json
 from utilis.verify_settings import *
+import aiohttp
 
 
 tracemalloc.start()
@@ -94,24 +95,11 @@ class RunEmbed(discord.Embed):
         if str(self.run.position) in self.run.settings['emotes']:
             elements.append(self.run.settings['emotes'][str(self.run.position)])
         elements.append(f'{FormatText.ordinalPosition(self.run.position)} place:')
-        elements.append(f'[{self.convertTimeFormat(self.run.time)}]({self.run.weblink})')
+        elements.append(f'[{FormatText.convertTime(self.run.time, isLowcast = 'lowcast' in self.categoryDisplay().lower())}]({self.run.weblink})')
         elements.append('by')
         elements.append(self.playersDisplay())
         
         return ' '.join(elements)
-          
-    def convertTimeFormat(self, t: float) -> str:
-        hours = int(t/60/60)
-        minutes = int(t/60%60)
-        seconds = int(t%60)
-        milliseconds = round(t%1*1000)
-
-        if 'lowcast' in self.categoryDisplay().lower():
-            return "%d:%02d:%02d (%d casts)" % (minutes, seconds, milliseconds/10, hours)
-        elif t > 600:
-            return "%d:%02d:%02d" % (hours, minutes, seconds)
-        else:
-            return "%d:%02d.%03d" % (minutes, seconds, milliseconds) 
         
     def playersDisplay(self) -> str:
         playersInfo = self.run.playersInfo
@@ -140,43 +128,118 @@ class RunEmbed(discord.Embed):
         return '\n'.join(elements)
     
 
-class streamEmbed(discord.Embed):
+class StreamEmbed(discord.Embed):
     def __init__(self, streamData, gameData, userData) -> None:
         super().__init__()
         authorName = userData['name']
         userAssets = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
         authorIcon = 'https://www.speedrun.com' + userAssets[0]['path'] if userAssets else None
-        authorLink = 'https://www.speedrun.com/user/'+userData['url']
-        twitchLink = streamData['url']
+        self.authorLink = 'https://www.speedrun.com/user/'+userData['url']
+        self.twitchLink = streamData['url']
         title = streamData['title']
-        gameSettings = settings['games'][gameData['id']]
-        gameName = gameSettings.get('display_name', gameData['name'])
+        self.gameSettings = settings['games'].get(gameData['id'], settings['games']['default'])
+        gameName = self.gameSettings.get('display_name', gameData['name'])
         self.colour = 0xffffff if streamData['hasPb'] else 0x000000
         self.title = title
-        self.url = twitchLink
+        self.url = self.twitchLink
         self.area = streamData['areaId']
+        self.streamName = streamData["channelName"]
         self.set_image(url=streamData['previewUrl'] + '?vary=' + str(randint(0, 1_000_000)))
-        self.message = f'{FormatText.getFlagEmoji(self.area)} **{streamData["channelName"]}** is streaming **{gameName}** {gameSettings["emote"]}'
+        self.label = f'{FormatText.getFlagEmoji(self.area)} **{self.streamName}** is streaming **{gameName}** {self.gameSettings["emote"]}'
         self.set_author(
             name = authorName,
             icon_url = authorIcon,
-            url = authorLink
+            url = self.authorLink
         )
-        self.servers = gameSettings['stream_notif']
-        self.view = buttonView(authorLink, twitchLink)
+        self.hasTherun = False
+        self.messages: list[discord.Message] = []
+
+    async def setTherunProfileName(self):
+        async with aiohttp.ClientSession() as therunSession:
+            therunAPIlink = "https://therun.gg/api/users/" + self.streamName
+            async with therunSession.get(therunAPIlink) as therunUserDataResponse:
+                therunUserData = await therunUserDataResponse.json()
+                if therunUserData != []:
+                    self.hasTherun = True
+                    self.therunLink = "https://therun.gg/"+self.streamName
+                else:
+                    self.therunLink =  ""
+
+    def setButtonView(self):
+        self.servers = self.gameSettings['stream_notif']
+        self.view = ButtonView(self.authorLink, self.twitchLink, self.therunLink)
+
+    async def sendMessages(self):
+        for server in self.servers:
+            message: discord.Message = await client.get_channel(server).send(self.label, embeds=[self], view=self.view)
+            self.messages.append(message)
 
 
-class buttonView(discord.ui.View):
-    def __init__(self, authorLink, twitchLink):
+class TherunEmbed(discord.Embed):
+    def __init__(self, therunUserData) -> None:
+        super().__init__()
+        self.user: str = therunUserData['user']
+        self.game: str = therunUserData['game']
+        self.category: str = therunUserData['category']
+        self.currentSplitIndex: int = therunUserData['currentSplitIndex']
+        self.currentSplitName: str = therunUserData['currentSplitName'] if therunUserData['currentSplitName'] else "-"
+        self.totalSplitCount: int = len(therunUserData['splits'])
+        self.runPercentage: float = float(therunUserData['runPercentage'])
+        self.delta: float = therunUserData['delta']
+        self.pb: float|None = therunUserData['pb']
+        self.variables: dict[str, str] = therunUserData['variables']
+        self.description: str = self.getDescription()
+        self.colour: int = self.getColour()
+        self.set_author(
+            name = f"{self.game}\n{self.category}",
+            url = "https://therun.gg/live/" + self.user,
+            icon_url = "https://therun.gg/media/logo/logo_dark_theme_no_text.png"
+        )
+
+    def deltaToTime(self) -> str:
+        return FormatText.convertSplitTime(self.delta)
+    
+    def getColour(self) -> int:
+        if self.delta < 0:
+            return 0x00FF00
+        elif self.delta > 0:
+            return 0xFF0000
+        else:
+            return 0x808080
+        
+    def progressBar(self) -> str:
+        return FormatText.numberToProgressBar(self.runPercentage, 10)
+    
+    def personalBest(self) -> str:
+        if self.pb:
+            return FormatText.convertTime(self.pb/1000)
+        return "None"
+
+    def fullCategory(self) -> str:
+        return ', '.join([self.category, *self.variables.values()])
+    
+    def getDescription(self) -> str:
+        return \
+            f"Personal Best: **{self.personalBest()}**\n\
+            Current split: **{self.currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})\n\
+            Current pace: **{self.deltaToTime()}**\n\
+            Run progression: {self.progressBar()}"
+
+
+class ButtonView(discord.ui.View):
+    def __init__(self, authorLink, twitchLink, therunLink):
         super().__init__()
         self.authorLink = authorLink
         self.twitchLink = twitchLink
+        self.therunLink = therunLink
         twitchButton = discord.ui.Button(emoji='<:twitch:1196142317615190066>', label='Twitch channel', url=self.twitchLink)
         self.add_item(twitchButton)
         srdcButton = discord.ui.Button(emoji='<:srdc:1196142314599485541>', label='Speedrun.com profile', url=self.authorLink)
         self.add_item(srdcButton)
+        if self.therunLink != "":
+            therunButton = discord.ui.Button(emoji='<:therun:1059863020601356388>', label='TheRun.gg profile', url=self.therunLink)
+            self.add_item(therunButton)
     
-
 
 class FormatText:
     @staticmethod
@@ -194,6 +257,50 @@ class FormatText:
         codePoints = [127397 + ord(char) for char in countryCode.upper()]
 
         return ''.join(chr(codePoint) for codePoint in codePoints)
+    
+    @staticmethod
+    def convertTime(t: float, isLowcast: bool = False) -> str:
+        hours = int(t/60/60)
+        minutes = int(t/60%60)
+        seconds = int(t%60)
+        milliseconds = round(t%1*1000)
+
+        if isLowcast:
+            return "%d:%02d:%02d (%d casts)" % (minutes, seconds, milliseconds/10, hours)
+        elif t > 600:
+            return "%d:%02d:%02d" % (hours, minutes, seconds)
+        else:
+            return "%d:%02d.%03d" % (minutes, seconds, milliseconds) 
+        
+    @staticmethod
+    def convertSplitTime(t: float) -> str:
+        if t == 0:
+            return "-0.00"
+        
+        sign = "-" if t < 0 else "+"
+        t = abs(t/1000)
+        hours = int(t/60/60)
+        minutes = int(t/60%60)
+        seconds = int(t%60)
+        milliseconds = round(t%1*100)
+
+        if t > 3600:
+            return "%s%d:%02d:%02d.%02d" % (sign, hours, minutes, seconds, milliseconds)
+        elif t > 60:
+            return "%s%d:%02d.%02d" % (sign, minutes, seconds, milliseconds)
+        else:
+            return "%s%d.%02d" % (sign, seconds, milliseconds) 
+        
+    @staticmethod
+    def numberToProgressBar(number: float, segments: int):
+        fixed = round(number*segments*2)
+        full = fixed//2
+        half = fixed%2
+        empty = segments - full - half
+
+        return full*"█" + half*"▓" + empty*"░"
+
+
 
 
 async def initialPrep() -> None:
@@ -207,7 +314,7 @@ async def initialPrep() -> None:
 
 client = commands.Bot(command_prefix='/', intents=discord.Intents.default(), allowed_mentions=discord.AllowedMentions(roles=True, users=True, everyone=True))
 rememberedRuns: dict[str, list[str]] = {}
-rememberedStreams: dict[str, discord.Message] = {}
+rememberedStreams: dict[str, StreamEmbed] = {}
 
 
 @client.event
@@ -222,13 +329,9 @@ async def on_ready():
         print(e)
     await initialPrep()
     print("Ready!")
-    mainloop.start()
-
-
-@tasks.loop(minutes = settings['loop_period'])
-async def mainloop():
-    await checkForNewRuns()
-    await checkForNewStreams()
+    tasks.loop(minutes = settings['loop_period'])(checkForNewRuns).start()
+    tasks.loop(minutes = settings['loop_period'])(checkForNewStreams).start()
+    tasks.loop(seconds = 10)(checkForCurrentPace).start()
 
 
 async def checkForNewRuns():
@@ -278,16 +381,33 @@ async def checkForNewStreams():
             streamsToDelete.append(user)
     for user in streamsToDelete:
         print(f"Deleting {user}'s stream")
-        await rememberedStreams[user].delete()
+        for m in rememberedStreams[user].messages: 
+            await m.delete()
         del rememberedStreams[user]
     for streamData in data['streamList']:
         if streamData['channelName'] not in rememberedStreams.keys():
             gameData = [game for game in data['gameList'] if streamData['gameId'] == game['id']][0]
             userData = [user for user in data['userList'] if streamData['userId'] == user['id']][0]
-            embed = streamEmbed(streamData, gameData, userData)
-            for server in embed.servers:
-                message: discord.Message = await client.get_channel(server).send(embed.message, embed=embed, view=embed.view)
-                rememberedStreams[streamData['channelName']] = message
+            streamEmbed = StreamEmbed(streamData, gameData, userData)
+            await streamEmbed.setTherunProfileName()
+            streamEmbed.setButtonView()
+            await streamEmbed.sendMessages()
+            rememberedStreams[streamData['channelName']] = streamEmbed
+
+
+async def checkForCurrentPace():
+    for streamEmbed in rememberedStreams.values():
+        if streamEmbed.hasTherun:
+            async with aiohttp.ClientSession() as therunSession:
+                therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
+                async with therunSession.get(therunAPIlink) as therunUserDataResponse:
+                    therunUserData = await therunUserDataResponse.json()
+            for message in streamEmbed.messages:
+                if therunUserData != []:
+                    therunEmbed = TherunEmbed(therunUserData)
+                    await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
+                elif len(message.embeds) > 1:
+                    await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
 
 
 @client.tree.command(name='run_to_embed')
