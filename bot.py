@@ -404,18 +404,22 @@ async def checkForNewStreams():
 
 
 async def checkForCurrentPace():
-    for streamEmbed in rememberedStreams.values():
-        if streamEmbed.hasTherun:
-            async with aiohttp.ClientSession() as therunSession:
-                therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
-                async with therunSession.get(therunAPIlink) as therunUserDataResponse:
-                    therunUserData = await therunUserDataResponse.json()
-            for message in streamEmbed.messages:
-                if therunUserData != []:
-                    therunEmbed = TherunEmbed(therunUserData)
-                    await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
-                elif len(message.embeds) > 1:
-                    await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
+    try:
+        for streamEmbed in rememberedStreams.values():
+            if streamEmbed.hasTherun:
+                async with aiohttp.ClientSession() as therunSession:
+                    therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
+                    async with therunSession.get(therunAPIlink) as therunUserDataResponse:
+                        therunUserData = await therunUserDataResponse.json()
+                for message in streamEmbed.messages:
+                    if therunUserData != []:
+                        therunEmbed = TherunEmbed(therunUserData)
+                        await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
+                    elif len(message.embeds) > 1:
+                        await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
+    except RuntimeError:
+        ## The program tries to edit embeds that were already deleted
+        pass
 
 
 @client.tree.command(name='run_to_embed')
