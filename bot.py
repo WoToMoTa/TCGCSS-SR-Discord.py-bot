@@ -154,6 +154,7 @@ class StreamEmbed(discord.Embed):
             url = self.authorLink
         )
         self.hasTherun = False
+        self.therunWebsocket = None
         self.messages: list[discord.Message] = []
 
     async def setTherunProfileName(self):
@@ -420,6 +421,9 @@ async def checkForNewStreams():
             streamEmbed.setButtonView()
             await streamEmbed.sendMessages()
             rememberedStreams[streamData['channelName']] = streamEmbed
+    for streamEmbed in rememberedStreams.values():
+        if streamEmbed.therunWebsocket:
+            await streamEmbed.therunWebsocket.ping()
 
 
 @client.tree.command(name='run_to_embed')
