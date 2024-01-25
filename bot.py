@@ -226,7 +226,7 @@ class TherunEmbed(discord.Embed):
             return 0x808080
         
     def progressBar(self) -> str:
-        return FormatText.numberToProgressBar(self.runPercentage, 10)
+        return FormatText.numberToProgressBar(self.runPercentage, 15)
     
     def personalBest(self) -> str:
         if self.pb:
@@ -242,13 +242,13 @@ class TherunEmbed(discord.Embed):
                 f"Personal Best: **{self.personalBest()}**\n\
                 Current split: **{self.currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})\n\
                 Current pace: **{self.deltaToTime()}**\n\
-                Run progression: {self.progressBar()}"
+                Run progression: {self.progressBar()}".replace('                ', '')
         else:
             return \
                 f"Personal Best: **{self.personalBest()}**\n\
                 Final time: **{FormatText.convertTime(self.currentTime/1000)}**\n\
                 Difference to PB: **{self.deltaToTime()}**\n\
-                Run progression: {self.progressBar()}"
+                Run progression: {self.progressBar()}".replace('                ', '')
 
 
 class ButtonView(discord.ui.View):
