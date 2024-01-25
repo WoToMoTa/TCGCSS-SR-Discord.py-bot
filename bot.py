@@ -424,7 +424,6 @@ async def checkForNewStreams():
     for streamEmbed in rememberedStreams.values():
         if streamEmbed.therunWebsocket:
             await streamEmbed.therunWebsocket.ping()
-            print("pinged", streamEmbed.authorName)
 
 
 @client.tree.command(name='run_to_embed')
