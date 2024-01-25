@@ -9,6 +9,8 @@ import speedruncompy
 import json
 from utilis.verify_settings import *
 import aiohttp
+import websockets
+import asyncio
 
 
 tracemalloc.start()
@@ -131,7 +133,7 @@ class RunEmbed(discord.Embed):
 class StreamEmbed(discord.Embed):
     def __init__(self, streamData, gameData, userData) -> None:
         super().__init__()
-        authorName = userData['name']
+        self.authorName = userData['name']
         userAssets = [asset for asset in userData['staticAssets'] if asset['assetType'] == 'image']
         authorIcon = 'https://www.speedrun.com' + userAssets[0]['path'] if userAssets else None
         self.authorLink = 'https://www.speedrun.com/user/'+userData['url']
@@ -147,7 +149,7 @@ class StreamEmbed(discord.Embed):
         self.set_image(url=streamData['previewUrl'] + '?vary=' + str(randint(0, 1_000_000)))
         self.label = f'{FormatText.getFlagEmoji(self.area)} **{self.streamName}** is streaming **{gameName}** {self.gameSettings["emote"]}'
         self.set_author(
-            name = authorName,
+            name = self.authorName,
             icon_url = authorIcon,
             url = self.authorLink
         )
@@ -162,6 +164,7 @@ class StreamEmbed(discord.Embed):
                 if therunUserData != []:
                     self.hasTherun = True
                     self.therunLink = "https://therun.gg/"+self.streamName
+                    self.therunListenTask = asyncio.create_task(self.listenToTherun())
                 else:
                     self.therunLink =  ""
 
@@ -174,6 +177,20 @@ class StreamEmbed(discord.Embed):
             message: discord.Message = await client.get_channel(server).send(self.label, embeds=[self], view=self.view)
             self.messages.append(message)
 
+    async def listenToTherun(self):
+        uri = "wss://fh76djw1t9.execute-api.eu-west-1.amazonaws.com/prod?username=" + self.streamName
+        async with websockets.connect(uri) as self.therunWebsocket:
+            print('opened socket connection', uri)
+            while True:
+                message = await self.therunWebsocket.recv()
+                therunLiveUserData = json.loads(message)
+                if therunLiveUserData != []:
+                    therunUserData = therunLiveUserData["run"]
+                    therunEmbed = TherunEmbed(therunUserData)
+                    for message in self.messages:
+                        await message.edit(content=self.label, embeds=[self, therunEmbed], view=self.view)
+
+                
 
 class TherunEmbed(discord.Embed):
     def __init__(self, therunUserData) -> None:
@@ -229,7 +246,7 @@ class TherunEmbed(discord.Embed):
         else:
             return \
                 f"Personal Best: **{self.personalBest()}**\n\
-                Final time: **{self.currentTime*1000}**\n\
+                Final time: **{FormatText.convertTime(self.currentTime/1000)}**\n\
                 Difference to PB: **{self.deltaToTime()}**\n\
                 Run progression: {self.progressBar()}"
 
@@ -339,7 +356,6 @@ async def on_ready():
     print("Ready!")
     tasks.loop(minutes = settings['loop_period'])(checkForNewRuns).start()
     tasks.loop(minutes = settings['loop_period'])(checkForNewStreams).start()
-    tasks.loop(seconds = 10)(checkForCurrentPace).start()
 
 
 async def checkForNewRuns():
@@ -380,7 +396,7 @@ async def checkForNewRuns():
             await sentMessage.add_reaction(reactionEmote)
 
 async def checkForNewStreams():
-    seriesId = '15ndxp7r'
+    seriesId = 'rv7emz49'
     endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
     data = await endpoint.perform_async()
     streamsToDelete = []
@@ -389,6 +405,8 @@ async def checkForNewStreams():
             streamsToDelete.append(user)
     for user in streamsToDelete:
         print(f"Deleting {user}'s stream")
+        if rememberedStreams[user].hasTherun:
+            rememberedStreams[user].therunListenTask.cancel()
         for m in rememberedStreams[user].messages: 
             await m.delete()
         del rememberedStreams[user]
@@ -403,23 +421,23 @@ async def checkForNewStreams():
             rememberedStreams[streamData['channelName']] = streamEmbed
 
 
-async def checkForCurrentPace():
-    try:
-        for streamEmbed in rememberedStreams.values():
-            if streamEmbed.hasTherun:
-                async with aiohttp.ClientSession() as therunSession:
-                    therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
-                    async with therunSession.get(therunAPIlink) as therunUserDataResponse:
-                        therunUserData = await therunUserDataResponse.json()
-                for message in streamEmbed.messages:
-                    if therunUserData != []:
-                        therunEmbed = TherunEmbed(therunUserData)
-                        await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
-                    elif len(message.embeds) > 1:
-                        await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
-    except RuntimeError:
-        ## The program tries to edit embeds that were already deleted
-        pass
+# async def checkForCurrentPace():
+#     try:
+#         for streamEmbed in rememberedStreams.values():
+#             if streamEmbed.hasTherun:
+#                 async with aiohttp.ClientSession() as therunSession:
+#                     therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
+#                     async with therunSession.get(therunAPIlink) as therunUserDataResponse:
+#                         therunUserData = await therunUserDataResponse.json()
+#                 for message in streamEmbed.messages:
+#                     if therunUserData != []:
+#                         therunEmbed = TherunEmbed(therunUserData)
+#                         await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
+#                     elif len(message.embeds) > 1:
+#                         await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
+#     except RuntimeError:
+#         ## The program tries to edit embeds that were already deleted
+#         pass
 
 
 @client.tree.command(name='run_to_embed')
