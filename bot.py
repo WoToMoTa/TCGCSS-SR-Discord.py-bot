@@ -358,6 +358,7 @@ async def on_ready():
     tasks.loop(minutes = settings['loop_period'])(checkForNewStreams).start()
 
 
+
 async def checkForNewRuns():
     global rememberedRuns
 
@@ -396,7 +397,7 @@ async def checkForNewRuns():
             await sentMessage.add_reaction(reactionEmote)
 
 async def checkForNewStreams():
-    seriesId = 'rv7emz49'
+    seriesId = '15ndxp7r'
     endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
     data = await endpoint.perform_async()
     streamsToDelete = []
@@ -419,25 +420,6 @@ async def checkForNewStreams():
             streamEmbed.setButtonView()
             await streamEmbed.sendMessages()
             rememberedStreams[streamData['channelName']] = streamEmbed
-
-
-# async def checkForCurrentPace():
-#     try:
-#         for streamEmbed in rememberedStreams.values():
-#             if streamEmbed.hasTherun:
-#                 async with aiohttp.ClientSession() as therunSession:
-#                     therunAPIlink = "https://therun.gg/api/live/" + streamEmbed.streamName
-#                     async with therunSession.get(therunAPIlink) as therunUserDataResponse:
-#                         therunUserData = await therunUserDataResponse.json()
-#                 for message in streamEmbed.messages:
-#                     if therunUserData != []:
-#                         therunEmbed = TherunEmbed(therunUserData)
-#                         await message.edit(content=streamEmbed.label, embeds=[streamEmbed, therunEmbed], view=streamEmbed.view)
-#                     elif len(message.embeds) > 1:
-#                         await message.edit(content=streamEmbed.label, embeds=[streamEmbed], view=streamEmbed.view)
-#     except RuntimeError:
-#         ## The program tries to edit embeds that were already deleted
-#         pass
 
 
 @client.tree.command(name='run_to_embed')
