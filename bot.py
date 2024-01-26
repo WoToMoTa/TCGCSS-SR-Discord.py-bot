@@ -165,6 +165,7 @@ class StreamEmbed(discord.Embed):
                 if therunUserData != []:
                     self.hasTherun = True
                     self.therunLink = "https://therun.gg/"+self.streamName
+                    print('connecting to websocket:', self.streamName)
                     self.therunListenTask = asyncio.create_task(self.listenToTherun())
                 else:
                     self.therunLink =  ""
@@ -181,7 +182,6 @@ class StreamEmbed(discord.Embed):
     async def listenToTherun(self):
         uri = "wss://fh76djw1t9.execute-api.eu-west-1.amazonaws.com/prod?username=" + self.streamName
         async with websockets.connect(uri) as self.therunWebsocket:
-            print('opened socket connection', uri)
             while True:
                 message = await self.therunWebsocket.recv()
                 therunLiveUserData = json.loads(message)
@@ -412,6 +412,10 @@ async def checkForNewStreams():
         for m in rememberedStreams[user].messages: 
             await m.delete()
         del rememberedStreams[user]
+    for streamEmbed in rememberedStreams.values():
+        if streamEmbed.therunWebsocket:
+            streamEmbed.therunListenTask.cancel()
+            streamEmbed.therunListenTask = asyncio.create_task(streamEmbed.listenToTherun())
     for streamData in data['streamList']:
         if streamData['channelName'] not in rememberedStreams.keys():
             gameData = [game for game in data['gameList'] if streamData['gameId'] == game['id']][0]
@@ -421,10 +425,6 @@ async def checkForNewStreams():
             streamEmbed.setButtonView()
             await streamEmbed.sendMessages()
             rememberedStreams[streamData['channelName']] = streamEmbed
-    for streamEmbed in rememberedStreams.values():
-        if streamEmbed.therunWebsocket:
-            await streamEmbed.therunWebsocket.ping()
-
 
 @client.tree.command(name='run_to_embed')
 @discord.app_commands.describe(run_id = 'ID of the run you want to embed')
