@@ -207,10 +207,11 @@ class TherunEmbed(discord.Embed):
         self.delta: float = therunUserData['delta']
         self.pb: float|None = therunUserData['pb']
         self.variables: dict[str, str] = therunUserData['variables']
+        self.splits: list[dict] = therunUserData['splits']
         self.description: str = self.getDescription()
         self.colour: int = self.getColour()
         self.set_author(
-            name = f"{self.game}\n{self.category}",
+            name = f"{self.game}\n{self.fullCategory()}",
             url = "https://therun.gg/live/" + self.user,
             icon_url = "https://therun.gg/media/logo/logo_dark_theme_no_text.png"
         )
@@ -237,11 +238,41 @@ class TherunEmbed(discord.Embed):
     def fullCategory(self) -> str:
         return ', '.join([self.category, *self.variables.values()])
     
+    def subsplitGroups(self) -> list[str]:
+        subsplitGroups: list[str] = []
+        splits = self.splits[:]
+        splits.reverse()
+        for split in splits:
+            splitName: str = split['name']
+            if splitName.startswith('{'):
+                subsplitGroups.append(splitName.split('}')[0][1:])
+            elif splitName.startswith('-') and len(subsplitGroups)>0:
+                subsplitGroups.append(subsplitGroups[-1])
+            else:
+                subsplitGroups.append(splitName)
+        subsplitGroups.reverse()
+
+        return subsplitGroups
+
+    def currentDisplaySplitName(self) -> str:
+        subsplitGroup = self.subsplitGroups()[self.currentSplitIndex]
+        if self.currentSplitName.startswith('{'):
+            currentSplitName = '}'.join(self.currentSplitName.split('}')[1:])
+        elif self.currentSplitName.startswith('-'):
+            currentSplitName = self.currentSplitName[1:]
+        else:
+            currentSplitName = self.currentSplitName
+
+        if currentSplitName == subsplitGroup:
+            return f'**{currentSplitName}**'
+        return f'***{subsplitGroup}*: {currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})'
+
+    
     def getDescription(self) -> str:
         if self.currentSplitIndex < self.totalSplitCount:
             return \
                 f"Personal Best: **{self.personalBest()}**\n\
-                Current split: **{self.currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})\n\
+                Current split: {self.currentDisplaySplitName()}\n\
                 Current pace: **{self.deltaToTime()}**\n\
                 Run progression: {self.progressBar()}".replace('                ', '')
         else:
