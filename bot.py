@@ -264,7 +264,7 @@ class TherunEmbed(discord.Embed):
             currentSplitName = self.currentSplitName
 
         if currentSplitName == subsplitGroup:
-            return f'**{currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount}'
+            return f'**{currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})'
         return f'***{subsplitGroup}*: {currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})'
 
     
