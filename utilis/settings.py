@@ -2,6 +2,7 @@ CHANNEL_ID_TEST = 1029384953189896322
 CHANNEL_ID_MAIN = 597203792055894016
 CHANNEL_ID_HL = 1064229439627604119
 CHANNEL_ID_STREAM = 365236143815655434
+CHANNEL_ID_LEGO_TEST = 1215705818129899520  
 
 POSITION_EMOTES_PC = {
     1: '<:health1st:1035612309571244032>',
@@ -125,10 +126,10 @@ GROUP_SETTINGS_PB = {
         },
     'Lego': {
         'colour': COLOUR_CODING['Lego'],
-        'server': CHANNEL_ID_MAIN,
+        'server': CHANNEL_ID_LEGO_TEST,
         'emotes': POSITION_EMOTES_PC,
-        'wr_ping': [PING_ROLE['WR']],
-        'stream_notif': [],
+        'wr_ping': [],
+        'stream_notif': [CHANNEL_ID_LEGO_TEST],
         'il_mode': 0,
         },
     'fangame': {
@@ -213,7 +214,7 @@ GROUP_SETTINGS_STREAM = {
     },
     'lego': {
         'emote': GAME_ICON_EMOTE['lego'],
-        'stream_notif': [],
+        'stream_notif': [CHANNEL_ID_LEGO_TEST],
     },
     'hl': {
         'emote': GAME_ICON_EMOTE['hl'],
@@ -258,6 +259,7 @@ GAME_SETTINGS = {
     'xkdklg6m': {**GROUP_SETTINGS_PB['PS1'], **GROUP_SETTINGS_STREAM['hp2']},
     '8m1zpm60': {**GROUP_SETTINGS_PB['PS1'], **GROUP_SETTINGS_STREAM['hp1']},
     'ok6q7odg': {**GROUP_SETTINGS_PB['6th'], **GROUP_SETTINGS_STREAM['hp2']},
+    'pd0n7o21': {**GROUP_SETTINGS_PB['6th'], **GROUP_SETTINGS_STREAM['hp2']},
     '8nd2l560': {**GROUP_SETTINGS_PB['6th'], **GROUP_SETTINGS_STREAM['hp1']},
     'm9dozm1p': {**GROUP_SETTINGS_PB['6th'], **GROUP_SETTINGS_STREAM['hp3']},
     'y65yg7de': {**GROUP_SETTINGS_PB['DS'], **GROUP_SETTINGS_STREAM['hp7']},
