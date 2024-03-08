@@ -255,6 +255,8 @@ class TherunEmbed(discord.Embed):
         return subsplitGroups
 
     def currentDisplaySplitName(self) -> str:
+        if self.currentSplitName == '':
+            return '**-**'
         subsplitGroup = self.subsplitGroups()[self.currentSplitIndex]
         if self.currentSplitName.startswith('{'):
             currentSplitName = '}'.join(self.currentSplitName.split('}')[1:])
