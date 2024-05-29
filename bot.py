@@ -11,7 +11,6 @@ from utilis.verify_settings import *
 import aiohttp
 import websockets
 import asyncio
-from speedruncompy.enums import ObsoleteFilter
 
 
 tracemalloc.start()
@@ -90,7 +89,7 @@ class Run:
                 'valueIds': [value['id']]
             } for value in self.valuesInfo if self.subcategories[value['variableId']]
         ]
-        leaderboardParams['obsolete'] = ObsoleteFilter.SHOWN
+        leaderboardParams['obsolete'] = 1
 
         return leaderboardParams
 
