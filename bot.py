@@ -393,9 +393,9 @@ class FormatText:
             seconds = round(t%1*100)
 
             if hours > 0:
-                return "-%d cast%s, %s%d:%02d:%02d" % (casts, 's' if casts == 1 else '', sign, hours, minutes, seconds)
+                return "-%d cast%s, %s%d:%02d:%02d" % (casts, 's' if casts != 1 else '', sign, hours, minutes, seconds)
             else:
-                return "-%d cast%s, %s%d:%02d" % (casts, 's' if casts == 1 else '', sign, minutes, seconds)
+                return "-%d cast%s, %s%d:%02d" % (casts, 's' if casts != 1 else '', sign, minutes, seconds)
 
         t = t2-t1
         hours = int(t/3600)
