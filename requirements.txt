@@ -1,4 +1,4 @@
 discord.py
 python-dotenv
-speedruncompy
+speedruncompy>=0.4.0
 websockets
