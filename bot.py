@@ -11,6 +11,7 @@ from utilis.verify_settings import *
 import aiohttp
 import websockets
 import asyncio
+from speedruncompy.enums import ObsoleteFilter
 
 
 tracemalloc.start()
@@ -26,6 +27,7 @@ class Run:
         self.position = runData['place']
         self.time = runData['time'] if 'time' in runData else runData['timeWithLoads']
         self.dateSubmitted = runData['dateSubmitted']
+        self.playerIds = runData['playerIds']
 
         self.gameInfo = {
             'id': gameData['id'],
@@ -76,6 +78,42 @@ class Run:
         else:
             self.pings = ''
 
+    def leaderboardParams(self) -> dict:
+        leaderboardParams = {}
+        leaderboardParams['gameId'] = self.gameInfo['id']
+        leaderboardParams['categoryId'] = self.categoryInfo['id']
+        if not self.isFullGame:
+            leaderboardParams['levelId'] = self.levelInfo['id']
+        leaderboardParams['values'] = [
+            {
+                'variableId': value['variableId'], 
+                'valueIds': [value['id']]
+            } for value in self.valuesInfo if self.subcategories[value['variableId']]
+        ]
+        leaderboardParams['obsolete'] = ObsoleteFilter.SHOWN
+
+        return leaderboardParams
+
+    async def setPreviousPB(self) -> None:
+        getGameLeaderboardResponse = await speedruncompy.GetGameLeaderboard2(**self.leaderboardParams()).perform_all_async()
+        runList = getGameLeaderboardResponse.runList
+        oldPB = {
+            'exists': False,
+            'place': 1,
+            'time': 0,
+        }
+        for run in runList:
+            if run.obsolete:
+                if run.playerIds == self.playerIds:
+                    oldPB['exists'] = True
+                    oldPB['time'] = run.time if run.time else (run.timeWithLoads if run.timeWithLoads else run.igt)
+                    self.oldPB = oldPB
+                    return 
+            else:
+                oldPB['place'] = run.place
+            
+        self.oldPB = oldPB
+        
 
 class RunEmbed(discord.Embed):
     def __init__(self, run: Run) -> None:
@@ -94,12 +132,20 @@ class RunEmbed(discord.Embed):
 
     def runDescription(self) -> str:
         elements = []
+        isLowcast ='lowcast' in self.categoryDisplay().lower()
         if str(self.run.position) in self.run.settings['emotes']:
             elements.append(self.run.settings['emotes'][str(self.run.position)])
-        elements.append(f'{FormatText.ordinalPosition(self.run.position)} place:')
-        elements.append(f'[{FormatText.convertTime(self.run.time, isLowcast = 'lowcast' in self.categoryDisplay().lower())}]({self.run.weblink})')
+        elements.append(f'{FormatText.ordinalPosition(self.run.position)}')
+        if self.run.oldPB['exists'] and int(self.run.oldPB['place']) > self.run.position:
+            elements.append(f'(from {FormatText.ordinalPosition(int(self.run.oldPB['place']))})')
+        elements.append('place:')
+        elements.append(f'[{FormatText.convertTime(self.run.time, isLowcast=isLowcast)}]({self.run.weblink})')
+        if self.run.oldPB['exists']:
+            elements.append(f'({FormatText.convertTimeDifference(self.run.oldPB['time'], self.run.time, isLowcast=isLowcast)})')
         elements.append('by')
         elements.append(self.playersDisplay())
+        if not self.run.oldPB['exists']:
+            elements.append('\nFirst PB in the category!')
         
         return ' '.join(elements)
         
@@ -255,8 +301,9 @@ class TherunEmbed(discord.Embed):
         return subsplitGroups
 
     def currentDisplaySplitName(self) -> str:
-        if self.currentSplitName == '':
+        if self.currentSplitName == '-':
             return '**-**'
+        
         subsplitGroup = self.subsplitGroups()[self.currentSplitIndex]
         if self.currentSplitName.startswith('{'):
             currentSplitName = '}'.join(self.currentSplitName.split('}')[1:])
@@ -267,6 +314,7 @@ class TherunEmbed(discord.Embed):
 
         if currentSplitName == subsplitGroup:
             return f'**{currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})'
+        
         return f'***{subsplitGroup}*: {currentSplitName}** ({self.currentSplitIndex+1}/{self.totalSplitCount})'
 
     
@@ -330,6 +378,45 @@ class FormatText:
             return "%d:%02d:%02d" % (hours, minutes, seconds)
         else:
             return "%d:%02d.%03d" % (minutes, seconds, milliseconds) 
+        
+    @staticmethod
+    def convertTimeDifference(t1: float, t2: float, isLowcast: bool = False) -> str:
+        times = [t1, t2]
+        times.sort()
+        t1, t2 = times
+        if isLowcast:
+            casts = int(t2/3600) - int(t1/3600)
+            t = t2%3600 - t1%3600
+            sign = "-" if t > 0 else "+"
+            t = abs(t)
+            hours = int(t/60%60)
+            minutes = int(t%60)
+            seconds = round(t%1*100)
+
+            if hours > 0:
+                return "-%d cast%s, %s%d:%02d:%02d" % (casts, 's' if casts == 1 else '', sign, hours, minutes, seconds)
+            else:
+                return "-%d cast%s, %s%d:%02d" % (casts, 's' if casts == 1 else '', sign, minutes, seconds)
+
+        t = t2-t1
+        hours = int(t/3600)
+        minutes = int(t/60%60)
+        seconds = int(t%60)
+        milliseconds = round(t%1*1000)
+
+        if t1 > 600:
+            if hours > 0:
+                return "-%d:%02d:%02d" % (hours, minutes, seconds)
+            else:
+                return "-%d:%02d" % (minutes, seconds)
+
+        else:
+            if hours > 0:
+                return "-%d:%02d:%02d" % (hours, minutes, seconds)
+            if minutes > 0:
+                return "-%d:%02d.%03d" % (minutes, seconds, milliseconds) 
+            else:
+                return "-%d.%03d" % (seconds, milliseconds) 
         
     @staticmethod
     def convertSplitTime(t: float) -> str:
@@ -420,6 +507,7 @@ async def checkForNewRuns():
                     if not newRun.isFullGame:
                         continue
 
+                await newRun.setPreviousPB()
                 newRuns.append(newRun)
                 rememberedRuns[series].append(newRun.id)
 
@@ -459,9 +547,11 @@ async def checkForNewStreams():
             await streamEmbed.sendMessages()
             rememberedStreams[streamData['channelName']] = streamEmbed
 
+
 @client.tree.command(name='run_to_embed')
 @discord.app_commands.describe(run_id = 'ID of the run you want to embed')
 async def run_to_embed(interaction: discord.Interaction, run_id: str):
+    await interaction.response.defer()
     try:
         endpoint = speedruncompy.GetRun(runId=run_id)
         data = await endpoint.perform_async()
@@ -474,10 +564,13 @@ async def run_to_embed(interaction: discord.Interaction, run_id: str):
             data['variables'],
             data['players']
         ) 
+        await runToEmbed.setPreviousPB()
 
-        await interaction.response.send_message(embeds=[RunEmbed(runToEmbed)])
+        #await interaction.response.send_message(embeds=[RunEmbed(runToEmbed)])
+        await interaction.followup.send(embeds=[RunEmbed(runToEmbed)])
     except speedruncompy.exceptions.BadRequest:
-        await interaction.response.send_message(content='Run not found.', ephemeral=True)
+        #await interaction.response.send_message(content='Run not found.', ephemeral=True)
+        await interaction.followup.send(content='Run not found.', ephemeral=True)
 
 
 client.run(DISCORD_TOKEN)
