@@ -385,25 +385,23 @@ class FormatText:
         t1, t2 = times
         if isLowcast:
             casts = int(t2/3600) - int(t1/3600)
-            t = t2%3600 - t1%3600
-            sign = "-" if t > 0 else "+"
-            t = abs(t)
-            hours = int(t/60%60)
-            minutes = int(t%60)
-            seconds = round(t%1*100)
+            t1 = int(t1%3600)*60 + (t1%1)*100
+            t2 = int(t2%3600)*60 + (t2%1)*100
+            sign = "-" if t2%3600 - t1%3600 > 0 else "+"
 
-            if hours > 0:
-                return "-%d cast%s, %s%d:%02d:%02d" % (casts, 's' if casts != 1 else '', sign, hours, minutes, seconds)
-            else:
-                return "-%d cast%s, %s%d:%02d" % (casts, 's' if casts != 1 else '', sign, minutes, seconds)
-
-        t = t2-t1
+        t = abs(t2-t1)
         hours = int(t/3600)
         minutes = int(t/60%60)
         seconds = int(t%60)
         milliseconds = round(t%1*1000)
 
-        if t1 > 600:
+        if isLowcast:    
+            if hours > 0:
+                return "-%d casts, %s%d:%02d:%02d" % (casts, sign, hours, minutes, seconds)
+            else:
+                return "-%d casts, %s%d:%02d" % (casts, sign, minutes, seconds)
+
+        elif t1 > 600:
             if hours > 0:
                 return "-%d:%02d:%02d" % (hours, minutes, seconds)
             else:
@@ -415,7 +413,9 @@ class FormatText:
             if minutes > 0:
                 return "-%d:%02d.%03d" % (minutes, seconds, milliseconds) 
             else:
-                return "-%d.%03d" % (seconds, milliseconds) 
+                return "-%d.%03d" % (seconds, milliseconds)
+
+
         
     @staticmethod
     def convertSplitTime(t: float) -> str:
@@ -486,7 +486,7 @@ async def checkForNewRuns():
     for series in settings['series']:
         endpoint = speedruncompy.GetLatestLeaderboard(
             seriesId=series, 
-            limit=20,
+            limit=50,
             vary=randint(0, 1_000_000)
             )
         data = await endpoint.perform_async()
