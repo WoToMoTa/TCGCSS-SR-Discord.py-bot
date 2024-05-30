@@ -387,7 +387,7 @@ class FormatText:
             casts = int(t2/3600) - int(t1/3600)
             t1 = int(t1%3600)*60 + (t1%1)*100
             t2 = int(t2%3600)*60 + (t2%1)*100
-            sign = "-" if t2%3600 - t1%3600 > 0 else "+"
+            sign = "-" if t2%3600 - t1%3600 < 0 else "+"
 
         t = abs(t2-t1)
         hours = int(t/3600)
