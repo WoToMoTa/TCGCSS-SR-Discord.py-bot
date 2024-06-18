@@ -225,7 +225,7 @@ class StreamEmbed(discord.Embed):
             self.messages.append(message)
 
     async def listenToTherun(self):
-        uri = "wss://fh76djw1t9.execute-api.eu-west-1.amazonaws.com/prod?username=" + self.streamName
+        uri = "wss://fh76djw1t9.execute-api.eu-west-1.amazonaws.com/prod?username=" + self.streamName.lower()
         async with websockets.connect(uri) as self.therunWebsocket:
             while True:
                 message = await self.therunWebsocket.recv()
