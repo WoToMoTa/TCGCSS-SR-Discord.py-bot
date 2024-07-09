@@ -8,6 +8,7 @@ from discord.ext import commands, tasks
 import speedruncompy
 import json
 from utilis.verify_settings import *
+from utilis.pace_graph_generator import get_graph
 import aiohttp
 import websockets
 import asyncio
@@ -241,6 +242,7 @@ class StreamEmbed(discord.Embed):
 class TherunEmbed(discord.Embed):
     def __init__(self, therunUserData) -> None:
         super().__init__()
+        self.data: dict = therunUserData
         self.user: str = therunUserData['user']
         self.game: str = therunUserData['game']
         self.category: str = therunUserData['category']
@@ -260,6 +262,7 @@ class TherunEmbed(discord.Embed):
             url = "https://therun.gg/live/" + self.user,
             icon_url = "https://therun.gg/media/logo/logo_dark_theme_no_text.png"
         )
+        self.set_thumbnail(url=self.getThumbnail())
 
     def deltaToTime(self) -> str:
         return FormatText.convertSplitTime(self.delta)
@@ -330,6 +333,12 @@ class TherunEmbed(discord.Embed):
                 Final time: **{FormatText.convertTime(self.currentTime/1000)}**\n\
                 Difference to PB: **{self.deltaToTime()}**\n\
                 Run progression: {self.progressBar()}".replace('                ', '')
+        
+
+    def getThumbnail(self) -> str|None:
+        if self.currentSplitIndex < 1:
+            return None
+        return get_graph(self.data)
 
 
 class ButtonView(discord.ui.View):
@@ -518,7 +527,7 @@ async def checkForNewRuns():
             await sentMessage.add_reaction(reactionEmote)
 
 async def checkForNewStreams():
-    seriesId = '15ndxp7r'
+    seriesId = 'rv7emz49'
     endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
     data = await endpoint.perform_async()
     streamsToDelete = []
