@@ -527,7 +527,7 @@ async def checkForNewRuns():
             await sentMessage.add_reaction(reactionEmote)
 
 async def checkForNewStreams():
-    seriesId = 'rv7emz49'
+    seriesId = '15ndxp7r'
     endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
     data = await endpoint.perform_async()
     streamsToDelete = []
