@@ -804,12 +804,30 @@
             "il_mode": 1,
             "emote": "<:PS1modding:1071105913735360512>"
         },
+        "pd0n9g01": {
+            "colour": 16711680,
+            "server": 597203792055894016,
+            "emotes": {
+                "1": "<:health1st:1035612309571244032>",
+                "2": "<:health2nd:1035612311412543609>",
+                "3": "<:health3rd:1035612307574751254>"
+            },
+            "wr_ping": [
+                "<@&1142161543367237642>"
+            ],
+            "stream_notif": [
+                365236143815655434
+            ],
+            "il_mode": 1,
+            "emote": "<:QWC:1024727842170359890>",
+            "display_name": "Quidditch Champions"
+        },
         "default": {
             "colour": 0,
             "server": 1029384953189896322,
             "emotes": {},
             "wr_ping": [],
-            "stream_notif": [1029384953189896322],
+            "stream_notif": [],
             "il_mode": 0,
             "emote": ""
         }
