@@ -157,6 +157,14 @@ GROUP_SETTINGS_PB = {
         'stream_notif': [CHANNEL_ID_STREAM],
         'il_mode': 1,
         },
+    'QC': {
+        'colour': COLOUR_CODING['PC'],
+        'server': CHANNEL_ID_MAIN,
+        'emotes': POSITION_EMOTES_PC,
+        'wr_ping': [PING_ROLE['WR']],
+        'stream_notif': [CHANNEL_ID_STREAM],
+        'il_mode': 1,
+        },
     'default': {
         'colour': 0x000000,
         'server': CHANNEL_ID_TEST,
@@ -211,6 +219,11 @@ GROUP_SETTINGS_STREAM = {
     'qwc': {
         'emote': GAME_ICON_EMOTE['qwc'],
         'display_name': 'Quidditch World Cup',
+        'stream_notif': [CHANNEL_ID_STREAM],
+    },
+    'qc': {
+        'emote': GAME_ICON_EMOTE['qwc'],
+        'display_name': 'Quidditch Champions',
         'stream_notif': [CHANNEL_ID_STREAM],
     },
     'lego': {
@@ -287,6 +300,7 @@ GAME_SETTINGS = {
     'kdkmo5q1': {**GROUP_SETTINGS_PB['fangame'], **GROUP_SETTINGS_STREAM['fan']},
     '46w38ml1': {**GROUP_SETTINGS_PB['fangame'], **GROUP_SETTINGS_STREAM['fan']},
     'o6gkk2n1': {**GROUP_SETTINGS_PB['fangame'], **GROUP_SETTINGS_STREAM['fan']},
+    'pd0n9g01': {**GROUP_SETTINGS_PB['QC'], **GROUP_SETTINGS_STREAM['qc']},
     'default' : {**GROUP_SETTINGS_PB['default'], **GROUP_SETTINGS_STREAM['default']},
 }
 
