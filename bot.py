@@ -262,7 +262,7 @@ class TherunEmbed(discord.Embed):
             url = "https://therun.gg/live/" + self.user,
             icon_url = "https://therun.gg/media/logo/logo_dark_theme_no_text.png"
         )
-        self.set_thumbnail(url=self.getThumbnail())
+        # self.set_thumbnail(url=self.getThumbnail())
 
     def deltaToTime(self) -> str:
         return FormatText.convertSplitTime(self.delta)
