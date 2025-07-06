@@ -460,7 +460,7 @@ class FormatText:
 async def initialPrep() -> None:
     global rememberedRuns
     for series in settings['series']:
-        endpoint = speedruncompy.GetLatestLeaderboard(seriesId=series, limit=100, vary=randint(0, 1_000_000))
+        endpoint = speedruncompy.GetLatestLeaderboard(gameId=series, limit=100, vary=randint(0, 1_000_000))
         data = await endpoint.perform_async()
         rememberedRuns[series] = [run['id'] for run in data['runs']]
 
@@ -494,7 +494,7 @@ async def checkForNewRuns():
     newRuns: list[Run] = []
     for series in settings['series']:
         endpoint = speedruncompy.GetLatestLeaderboard(
-            seriesId=series, 
+            gameId=series, 
             limit=50,
             vary=randint(0, 1_000_000)
             )
@@ -527,8 +527,8 @@ async def checkForNewRuns():
             await sentMessage.add_reaction(reactionEmote)
 
 async def checkForNewStreams():
-    seriesId = '15ndxp7r'
-    endpoint = speedruncompy.GetStreamList(seriesId=seriesId, vary=randint(0, 1_000_000))
+    gameId = 'yd4rwlp1'
+    endpoint = speedruncompy.GetStreamList(gameId=gameId, vary=randint(0, 1_000_000))
     data = await endpoint.perform_async()
     streamsToDelete = []
     for user in rememberedStreams.keys():
