@@ -14,15 +14,14 @@
                 "3": "<:health3rd:1035612307574751254>"
             },
             "wr_ping": [
-                "<@&1060270605057929358>",
-                "<@&1142161543367237642>"
+                "<@1325086534679924777>"
             ],
             "stream_notif": [
-                365236143815655434
+                1391505418513289346
             ],
-            "il_mode": 1,
+            "il_mode": 0,
             "emote": "<:HP2:1024667976487678023>",
-            "display_name": "Harry Potter and the Chamber of Secrets"
+            "display_name": "TCG Card Shop Simulator"
         },
         "default": {
             "colour": 0,
