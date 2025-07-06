@@ -1,36 +1,18 @@
 {
     "loop_period": 5,
     "series": [
-        "15ndxp7r",
-        "v7odlz9n"
+        "yd4rwlp1",
     ],
     "games": {
-        "nj1nvw6p": {
+        "yd4rwlp1": {
             "colour": 65535,
             "server": 1325118337658654800,
-            "emotes": {
-                "1": "<:health1st:1035612309571244032>",
-                "2": "<:health2nd:1035612311412543609>",
-                "3": "<:health3rd:1035612307574751254>"
-            },
-            "wr_ping": [
-                "<@1325086534679924777>"
-            ],
-            "stream_notif": [
-                1391505418513289346
-            ],
-            "il_mode": 0,
-            "emote": "<:HP2:1024667976487678023>",
-            "display_name": "TCG Card Shop Simulator"
-        },
-        "default": {
-            "colour": 0,
-            "server": 1029384953189896322,
             "emotes": {},
             "wr_ping": [],
             "stream_notif": [],
             "il_mode": 0,
-            "emote": ""
-        }
+            "emote": "",
+            "display_name": "TCG Card Shop Simulator"
+        },
     }
 }
